@@ -148,7 +148,7 @@ function App() {
         </div>
 
         <div className="fixed bottom-2 left-2 text-xs text-white drop-shadow">
-          made with ☁️ by you
+            the weather watch — check weather in a glance ☀️
         </div>
       </div>
     </div>
