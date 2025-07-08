@@ -2,26 +2,25 @@ import React, { useEffect, useState } from "react";
 import './App.css';
 
 const weatherColors = {
-  Clear: "#FFD700",
-  Clouds: "#B0C4DE",
-  Rain: "#4682B4",
-  Drizzle: "#87CEFA",
-  Thunderstorm: "#4B0082",
-  Snow: "#FFFFFF",
-  Mist: "#C0C0C0",
-  Fog: "#A9A9A9",
-  Haze: "#D3D3D3",
-  Smoke: "#708090",
-  Dust: "#F5DEB3",
-  Sand: "#DEB887",
-  Ash: "#BEBEBE",
-  Squall: "#778899",
-  Tornado: "#808080",
+  Clear: "rgba(255, 215, 0, 0.3)",         // Gold
+  Clouds: "rgba(176, 196, 222, 0.3)",     // LightSteelBlue
+  Rain: "rgba(70, 130, 180, 0.3)",        // SteelBlue
+  Drizzle: "rgba(135, 206, 250, 0.3)",    // LightSkyBlue
+  Thunderstorm: "rgba(75, 0, 130, 0.3)",  // Indigo
+  Snow: "rgba(255, 255, 255, 0.3)",       // White
+  Mist: "rgba(192, 192, 192, 0.3)",       // Silver
+  Fog: "rgba(169, 169, 169, 0.3)",        // DarkGray
+  Haze: "rgba(211, 211, 211, 0.3)",       // LightGray
+  Smoke: "rgba(112, 128, 144, 0.3)",      // SlateGray
+  Dust: "rgba(245, 222, 179, 0.3)",       // Wheat
+  Sand: "rgba(222, 184, 135, 0.3)",       // BurlyWood
+  Ash: "rgba(190, 190, 190, 0.3)",        // Gray
+  Squall: "rgba(119, 136, 153, 0.3)",     // LightSlateGray
+  Tornado: "rgba(128, 128, 128, 0.3)"      // Gray
 };
 
 function App() {
-  const [bgColor, setBgColor] = useState("#F0F0F0");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [condition, setCondition] = useState("");
   const [temp, setTemp] = useState(null);
@@ -29,120 +28,197 @@ function App() {
   const [wind, setWind] = useState(null);
   const [city, setCity] = useState("");
   const [icon, setIcon] = useState("");
-  const [input, setInput] = useState("");
-  const [history, setHistory] = useState([]);
-  const [darkMode, setDarkMode] = useState(false);
+  const [glassColor, setGlassColor] = useState("rgba(255, 255, 255, 0.2)");
 
-  const fetchWeather = async (query) => {
-    setLoading(true);
-    try {
-      const apiKey = "c2276f08d6a94a0c6aae9010c9d3fabd";
-      const res = await fetch(
-        `https://api.openweathermap.org/data/2.5/weather?q=${query}&units=metric&appid=${apiKey}`
-      );
-      const data = await res.json();
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setError("Geolocation is not supported by your browser.");
+      setLoading(false);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const apiKey = "c2276f08d6a94a0c6aae9010c9d3fabd";
+          const { latitude, longitude } = position.coords;
+          const res = await fetch(
+            `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&units=metric&appid=${apiKey}`
+          );
+          const data = await res.json();
 
-      if (!res.ok) {
-        setError(`API error: ${data.message}`);
+          if (!res.ok) {
+            setError(`API error: ${data.message}`);
+            setLoading(false);
+            return;
+          }
+
+          if (data.weather && data.weather.length > 0) {
+            const main = data.weather[0].main;
+            setCondition(main);
+            setTemp(data.main.temp);
+            setHumidity(data.main.humidity);
+            setWind(data.wind.speed);
+            setCity(data.name);
+            setIcon(data.weather[0].icon);
+            setGlassColor(weatherColors[main] || "rgba(255, 255, 255, 0.2)");
+          } else {
+            setError("Couldn't fetch weather data.");
+          }
+        } catch (e) {
+          setError("Failed to fetch weather.");
+        }
         setLoading(false);
-        return;
+      },
+      () => {
+        setError("Could not get your location.");
+        setLoading(false);
       }
-
-      if (data.weather && data.weather.length > 0) {
-        const main = data.weather[0].main;
-        setCondition(main);
-        setTemp(data.main.temp);
-        setHumidity(data.main.humidity);
-        setWind(data.wind.speed);
-        setCity(data.name);
-        setIcon(data.weather[0].icon);
-        setBgColor(weatherColors[main] || "#F0F0F0");
-        setHistory((prev) => [data.name, ...prev.filter((c) => c !== data.name)].slice(0, 5));
-        setError("");
-      } else {
-        setError("Couldn't fetch weather data.");
-      }
-    } catch (e) {
-      setError("Failed to fetch weather.");
-    }
-    setLoading(false);
-  };
-
-  const handleSearch = (e) => {
-    e.preventDefault();
-    if (input.trim()) {
-      fetchWeather(input.trim());
-    }
-  };
-
-  const toggleDarkMode = () => setDarkMode(!darkMode);
+    );
+  }, []);
 
   return (
     <div
-      className={`flex flex-col items-center justify-center min-h-screen transition-colors duration-500 px-4 ${darkMode ? "bg-gray-900 text-white" : "text-gray-800"}`}
-      style={{ backgroundColor: darkMode ? "#1a1a1a" : bgColor }}
+      className="flex items-center justify-center min-h-screen bg-cover bg-center p-6"
+      style={{ backgroundImage: `url('https://source.unsplash.com/1600x900/?${condition}-weather')` }}
     >
-      <button
-        onClick={toggleDarkMode}
-        className="absolute top-4 right-4 px-3 py-1 bg-white/80 dark:bg-gray-800 text-sm rounded shadow"
-      >
-        {darkMode ? "☀️ Light" : "🌙 Dark"} Mode
-      </button>
+      {loading && (
+        <div className="text-xl text-gray-700 font-semibold">Loading weather...</div>
+      )}
 
-      <form onSubmit={handleSearch} className="mb-6 w-full max-w-sm flex gap-2">
-        <input
-          type="text"
-          placeholder="Search city..."
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          className="flex-grow px-3 py-2 rounded shadow focus:outline-none"
-        />
-        <button
-          type="submit"
-          className="px-4 py-2 bg-blue-500 text-white rounded shadow hover:bg-blue-600"
+      {error && (
+        <div className="p-4 bg-red-200 text-red-800 rounded">{error}</div>
+      )}
+
+      {!loading && !error && (
+        <div
+          className="glass text-white max-w-md w-full p-6 rounded-xl shadow-lg"
+          style={{ backgroundColor: glassColor }}
         >
-          Search
-        </button>
-      </form>
-
-      {loading && <div className="text-xl font-semibold">Loading weather...</div>}
-
-      {error && <div className="p-4 bg-red-200 text-red-800 rounded">{error}</div>}
-
-      {!loading && !error && condition && (
-        <div className="bg-white/60 dark:bg-gray-800/70 p-6 rounded-xl shadow-lg text-center backdrop-blur-md">
-          <h1 className="text-2xl font-bold mb-2">{city}</h1>
+          <div className="text-3xl font-bold mb-2">Weather in {city}</div>
           <img
-            src={`https://openweathermap.org/img/wn/${icon}@2x.png`}
+            className="w-20 h-20 mx-auto"
+            src={`http://openweathermap.org/img/wn/${icon}@2x.png`}
             alt={condition}
-            className="mx-auto"
           />
-          <p className="text-lg font-medium">{condition}</p>
-          <p>🌡️ {temp}°C</p>
-          <p>💧 Humidity: {humidity}%</p>
-          <p>💨 Wind: {wind} m/s</p>
+          <p className="text-xl mt-2">Condition: {condition}</p>
+          <p className="text-lg">Temperature: {temp}°C</p>
+          <p className="text-lg">Humidity: {humidity}%</p>
+          <p className="text-lg">Wind Speed: {wind} m/s</p>
         </div>
       )}
 
-      {history.length > 0 && (
-        <div className="mt-6 text-sm text-gray-700 dark:text-gray-300">
-          <h2 className="font-semibold mb-1">Recent Searches:</h2>
-          <div className="flex gap-2 flex-wrap">
-            {history.map((h, i) => (
-              <button
-                key={i}
-                onClick={() => fetchWeather(h)}
-                className="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
-              >
-                {h}
-              </button>
-            ))}
-          </div>
+      <div className="fixed bottom-2 left-2 text-sm text-white">
+        the weather watch — check weather in a glance import React, { useEffect, useState } from "react";
+import './App.css';
+
+const weatherColors = {
+  Clear: "rgba(255, 215, 0, 0.3)",         // Gold
+  Clouds: "rgba(176, 196, 222, 0.3)",     // LightSteelBlue
+  Rain: "rgba(70, 130, 180, 0.3)",        // SteelBlue
+  Drizzle: "rgba(135, 206, 250, 0.3)",    // LightSkyBlue
+  Thunderstorm: "rgba(75, 0, 130, 0.3)",  // Indigo
+  Snow: "rgba(255, 255, 255, 0.3)",       // White
+  Mist: "rgba(192, 192, 192, 0.3)",       // Silver
+  Fog: "rgba(169, 169, 169, 0.3)",        // DarkGray
+  Haze: "rgba(211, 211, 211, 0.3)",       // LightGray
+  Smoke: "rgba(112, 128, 144, 0.3)",      // SlateGray
+  Dust: "rgba(245, 222, 179, 0.3)",       // Wheat
+  Sand: "rgba(222, 184, 135, 0.3)",       // BurlyWood
+  Ash: "rgba(190, 190, 190, 0.3)",        // Gray
+  Squall: "rgba(119, 136, 153, 0.3)",     // LightSlateGray
+  Tornado: "rgba(128, 128, 128, 0.3)"      // Gray
+};
+
+function App() {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [condition, setCondition] = useState("");
+  const [temp, setTemp] = useState(null);
+  const [humidity, setHumidity] = useState(null);
+  const [wind, setWind] = useState(null);
+  const [city, setCity] = useState("");
+  const [icon, setIcon] = useState("");
+  const [glassColor, setGlassColor] = useState("rgba(255, 255, 255, 0.2)");
+
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setError("Geolocation is not supported by your browser.");
+      setLoading(false);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const apiKey = "c2276f08d6a94a0c6aae9010c9d3fabd";
+          const { latitude, longitude } = position.coords;
+          const res = await fetch(
+            `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&units=metric&appid=${apiKey}`
+          );
+          const data = await res.json();
+
+          if (!res.ok) {
+            setError(`API error: ${data.message}`);
+            setLoading(false);
+            return;
+          }
+
+          if (data.weather && data.weather.length > 0) {
+            const main = data.weather[0].main;
+            setCondition(main);
+            setTemp(data.main.temp);
+            setHumidity(data.main.humidity);
+            setWind(data.wind.speed);
+            setCity(data.name);
+            setIcon(data.weather[0].icon);
+            setGlassColor(weatherColors[main] || "rgba(255, 255, 255, 0.2)");
+          } else {
+            setError("Couldn't fetch weather data.");
+          }
+        } catch (e) {
+          setError("Failed to fetch weather.");
+        }
+        setLoading(false);
+      },
+      () => {
+        setError("Could not get your location.");
+        setLoading(false);
+      }
+    );
+  }, []);
+
+  return (
+    <div
+      className="flex items-center justify-center min-h-screen bg-cover bg-center p-6"
+      style={{ backgroundImage: `url('https://source.unsplash.com/1600x900/?${condition}-weather')` }}
+    >
+      {loading && (
+        <div className="text-xl text-gray-700 font-semibold">Loading weather...</div>
+      )}
+
+      {error && (
+        <div className="p-4 bg-red-200 text-red-800 rounded">{error}</div>
+      )}
+
+      {!loading && !error && (
+        <div
+          className="glass text-white max-w-md w-full p-6 rounded-xl shadow-lg"
+          style={{ backgroundColor: glassColor }}
+        >
+          <div className="text-3xl font-bold mb-2">Weather in {city}</div>
+          <img
+            className="w-20 h-20 mx-auto"
+            src={`http://openweathermap.org/img/wn/${icon}@2x.png`}
+            alt={condition}
+          />
+          <p className="text-xl mt-2">Condition: {condition}</p>
+          <p className="text-lg">Temperature: {temp}°C</p>
+          <p className="text-lg">Humidity: {humidity}%</p>
+          <p className="text-lg">Wind Speed: {wind} m/s</p>
         </div>
       )}
 
-      <div className="fixed bottom-2 left-2 text-xs opacity-60">
-        the weather watch — check weather in a glance☀️
+      <div className="fixed bottom-2 left-2 text-sm text-white">
+        the weather watch — check weather in a glance ☀️
       </div>
     </div>
   );
