@@ -1,155 +1,185 @@
 import React, { useEffect, useState } from "react";
 import "./App.css";
 
-const weatherImages = {
-  Clear: "clear.png",
-  Clouds: "clouds.jpg",
-  Rain: "rain.jpg",
-  Drizzle: "drizzle.png",
-  Mist: "mist.jpg",
-  Storm: "storm.png",
-};
-
 const weatherColors = {
-  Clear: "bg-yellow-100/40",
-  Clouds: "bg-blue-100/40",
-  Rain: "bg-blue-300/40",
-  Drizzle: "bg-cyan-100/40",
-  Mist: "bg-gray-300/40",
-  Storm: "bg-purple-300/40",
-  Default: "bg-white/40",
+  Clear: "#FFD700",
+  Clouds: "#B0C4DE",
+  Rain: "#4682B4",
+  Drizzle: "#87CEFA",
+  Thunderstorm: "#4B0082",
+  Snow: "#FFFFFF",
+  Mist: "#C0C0C0",
+  Fog: "#A9A9A9",
+  Haze: "#D3D3D3",
+  Smoke: "#708090",
+  Dust: "#F5DEB3",
+  Sand: "#DEB887",
+  Ash: "#BEBEBE",
+  Squall: "#778899",
+  Tornado: "#808080",
 };
 
 function App() {
-  const [city, setCity] = useState("");
-  const [query, setQuery] = useState("");
-  const [weather, setWeather] = useState(null);
-  const [error, setError] = useState("");
+  const [bgColor, setBgColor] = useState("#F0F0F0");
   const [loading, setLoading] = useState(true);
-  const [dark, setDark] = useState(false);
+  const [error, setError] = useState("");
+  const [condition, setCondition] = useState("");
+  const [temp, setTemp] = useState(null);
+  const [humidity, setHumidity] = useState(null);
+  const [wind, setWind] = useState(null);
+  const [city, setCity] = useState("");
+  const [icon, setIcon] = useState("");
+  const [searchCity, setSearchCity] = useState("");
+  const [forecast, setForecast] = useState([]);
 
   const apiKey = "c2276f08d6a94a0c6aae9010c9d3fabd";
 
-  const fetchWeather = async (queryCity) => {
-    setLoading(true);
+  const fetchWeather = async (queryCity, lat, lon) => {
     try {
+      const locationQuery = queryCity
+        ? `q=${queryCity}`
+        : `lat=${lat}&lon=${lon}`;
       const res = await fetch(
-        `https://api.openweathermap.org/data/2.5/weather?q=${queryCity}&units=metric&appid=${apiKey}`
+        `https://api.openweathermap.org/data/2.5/weather?${locationQuery}&units=metric&appid=${apiKey}`
       );
       const data = await res.json();
-      if (res.ok) {
-        setWeather(data);
-        setCity(queryCity);
-        setError("");
-      } else {
-        setError(data.message || "Couldn't fetch weather.");
-        setWeather(null);
+      if (!res.ok) {
+        setError(`API error: ${data.message}`);
+        setLoading(false);
+        return;
       }
-    } catch (err) {
+
+      if (data.weather && data.weather.length > 0) {
+        const main = data.weather[0].main;
+        setCondition(main);
+        setTemp(data.main.temp);
+        setHumidity(data.main.humidity);
+        setWind(data.wind.speed);
+        setCity(data.name);
+        setIcon(data.weather[0].icon);
+        setBgColor(weatherColors[main] || "#F0F0F0");
+      } else {
+        setError("Couldn't fetch weather data.");
+      }
+
+      // Fetch forecast
+      const forecastRes = await fetch(
+        `https://api.openweathermap.org/data/2.5/forecast?${locationQuery}&units=metric&appid=${apiKey}`
+      );
+      const forecastData = await forecastRes.json();
+      const daily = forecastData.list.filter((reading) =>
+        reading.dt_txt.includes("12:00:00")
+      );
+      setForecast(daily.slice(0, 5));
+    } catch (e) {
       setError("Failed to fetch weather.");
     }
     setLoading(false);
   };
 
   useEffect(() => {
+    if (!navigator.geolocation) {
+      setError("Geolocation is not supported by your browser.");
+      setLoading(false);
+      return;
+    }
     navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        try {
-          const { latitude, longitude } = position.coords;
-          const res = await fetch(
-            `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&units=metric&appid=${apiKey}`
-          );
-          const data = await res.json();
-          if (res.ok) {
-            setWeather(data);
-            setCity(data.name);
-            setError("");
-          } else {
-            setError("Failed to get location weather.");
-          }
-        } catch {
-          setError("Failed to fetch weather.");
-        }
-        setLoading(false);
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        fetchWeather(null, latitude, longitude);
       },
       () => {
-        setError("Location permission denied.");
+        setError("Could not get your location.");
         setLoading(false);
       }
     );
   }, []);
 
-  const main = weather?.weather?.[0]?.main || "Default";
-  const bgImage = `/` + (weatherImages[main] || "clear.png");
-  const glassColor = weatherColors[main] || weatherColors.Default;
+  const handleSearch = (e) => {
+    e.preventDefault();
+    if (searchCity.trim()) {
+      setLoading(true);
+      fetchWeather(searchCity);
+    }
+  };
 
   return (
     <div
-      className={`min-h-screen bg-cover bg-center transition-colors duration-500 ${
-        dark ? "text-white" : "text-gray-900"
-      }`}
-      style={{ backgroundImage: `url(${bgImage})` }}
+      className="flex flex-col items-center justify-center min-h-screen transition-colors duration-500 p-4"
+      style={{ backgroundColor: bgColor }}
     >
-      <div className="absolute top-4 right-4">
-        <button
-          onClick={() => setDark(!dark)}
-          className="px-3 py-1 rounded bg-white/40 backdrop-blur text-sm font-semibold shadow"
+      <div className="glass-container p-6 rounded-2xl shadow-xl text-center w-full max-w-md">
+        <h1 className="text-3xl font-bold mb-4 text-gray-800">
+          The Weather Watch 🌤️
+        </h1>
+
+        <form
+          onSubmit={handleSearch}
+          className="flex items-center gap-2 mb-6"
         >
-          {dark ? "☀️ Light" : "🌙 Dark"}
-        </button>
-      </div>
+          <input
+            type="text"
+            placeholder="Enter city"
+            className="flex-1 px-4 py-2 rounded-full shadow-inner border border-gray-300 focus:outline-none"
+            value={searchCity}
+            onChange={(e) => setSearchCity(e.target.value)}
+          />
+          <button
+            type="submit"
+            className="bg-blue-500 text-white px-4 py-2 rounded-full hover:bg-blue-600"
+          >
+            Search
+          </button>
+        </form>
 
-      <div className="flex flex-col items-center justify-center min-h-screen px-4">
-        <div
-          className={`backdrop-blur-md rounded-xl shadow-xl p-6 max-w-sm w-full ${glassColor}`}
-        >
-          <h1 className="text-2xl font-bold mb-4 text-center">
-            The Weather Watch 🌤️
-          </h1>
-
-          <div className="flex mb-4">
-            <input
-              type="text"
-              placeholder="Enter city"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="flex-grow px-3 py-1 rounded-l bg-white/70 text-sm focus:outline-none"
-            />
-            <button
-              onClick={() => fetchWeather(query)}
-              className="px-3 bg-blue-500 text-white rounded-r"
-            >
-              Search
-            </button>
-          </div>
-
-          {loading && <p className="text-center text-sm">Loading...</p>}
-          {error && (
-            <p className="text-red-600 text-sm text-center">{error}</p>
-          )}
-
-          {weather && (
-            <div className="text-center space-y-2">
-              <h2 className="text-xl font-semibold">{city}</h2>
+        {loading ? (
+          <p className="text-gray-700 text-lg font-medium">Loading weather...</p>
+        ) : error ? (
+          <div className="p-3 bg-red-200 text-red-800 rounded">{error}</div>
+        ) : (
+          <>
+            <div className="mb-4">
               <img
-                src={`https://openweathermap.org/img/wn/${weather.weather[0].icon}@2x.png`}
-                alt="icon"
+                src={`https://openweathermap.org/img/wn/${icon}@2x.png`}
+                alt={condition}
                 className="mx-auto"
               />
-              <p className="text-lg">
-                {weather.weather[0].main} — {weather.main.temp}°C
+              <p className="text-xl font-semibold text-gray-700">
+                {city} - {condition}
               </p>
-              <p className="text-sm">
-                Humidity: {weather.main.humidity}% | Wind:{" "}
-                {weather.wind.speed} m/s
-              </p>
+              <p className="text-2xl font-bold">{temp}&deg;C</p>
+              <div className="text-sm text-gray-600">
+                💧 {humidity}% &nbsp; | &nbsp; 💨 {wind} m/s
+              </div>
             </div>
-          )}
-        </div>
 
-        <div className="fixed bottom-2 left-2 text-xs text-white drop-shadow">
-            the weather watch — check weather in a glance ☀️
-        </div>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-700 mb-2">5-Day Forecast</h2>
+              <div className="grid grid-cols-5 gap-2 text-sm">
+                {forecast.map((day, idx) => (
+                  <div
+                    key={idx}
+                    className="bg-white bg-opacity-50 rounded-lg p-2 shadow"
+                  >
+                    <p>{new Date(day.dt_txt).toLocaleDateString("en-US", {
+                      weekday: "short"
+                    })}</p>
+                    <img
+                      src={`https://openweathermap.org/img/wn/${day.weather[0].icon}.png`}
+                      alt={day.weather[0].main}
+                      className="w-8 mx-auto"
+                    />
+                    <p>{Math.round(day.main.temp)}&deg;C</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="mt-6 text-xs text-gray-600">
+        the weather watch — check weather in a glance 🌈
       </div>
     </div>
   );
